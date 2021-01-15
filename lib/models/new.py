@@ -1,10 +1,12 @@
-from lib.models.MPM import StripPooling
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .MPM import SPHead
+
 ## add SPBlock
-class SPBlock(nn.Module):  ##TODO:figure the usage out
+
+
+class SPBlock(nn.Module):
     def __init__(self, inplanes, outplanes, norm_layer=None):
         super(SPBlock, self).__init__()
         midplanes = outplanes
@@ -91,12 +93,11 @@ class DetailBranch(nn.Module):
             ConvBNReLU(128, 128, 3, stride=1),
             ConvBNReLU(128, 128, 3, stride=1),
         )
-        #self.spm = SPBlock(128,128,norm_layer=nn.BatchNorm2d)
+
     def forward(self, x):
         feat = self.S1(x)
         feat = self.S2(feat)
         feat = self.S3(feat)
-        #feat = feat*self.spm(feat)
         return feat
 
 
@@ -239,17 +240,17 @@ class SegmentBranch(nn.Module):
             GELayerS1(128, 128),
             GELayerS1(128, 128),
         )
-        self.S5_5 = CEBlock()
         self.spm = SPBlock(128,128,norm_layer=nn.BatchNorm2d)
+        self.S5_5 = CEBlock()
+        
     def forward(self, x):
         feat2 = self.S1S2(x)
         feat3 = self.S3(feat2)
         feat4 = self.S4(feat3)
         feat5_4 = self.S5_4(feat4)
         ## add SPBlock
-        #feat5_4 = feat5_4*self.spm(feat5_4)
+        feat5_4 = feat5_4*self.spm(feat5_4)
         feat5_5 = self.S5_5(feat5_4)
-        feat5_5 = feat5_5*self.spm(feat5_5)
         return feat2, feat3, feat4, feat5_4, feat5_5
 
 
@@ -288,7 +289,7 @@ class BGALayer(nn.Module):
                 128, 128, kernel_size=1, stride=1,
                 padding=0, bias=False),
         )
-        self.up1 = nn.Upsample(scale_factor=4) ##scaling the height and width
+        self.up1 = nn.Upsample(scale_factor=4)
         self.up2 = nn.Upsample(scale_factor=4)
         ##TODO: does this really has no relu?
         self.conv = nn.Sequential(
@@ -332,7 +333,7 @@ class SegmentHead(nn.Module):
         else:
             self.conv_out = nn.Sequential(
                 nn.Conv2d(mid_chan, out_chan, 1, 1, 0),
-                nn.PixelShuffle(up_factor) ##Rearrange the tensor to increase resolution
+                nn.PixelShuffle(up_factor)
             )
 
     def forward(self, x):
@@ -350,17 +351,8 @@ class BiSeNetV2(nn.Module):
         self.detail = DetailBranch()
         self.segment = SegmentBranch()
         self.bga = BGALayer()
-        ##ADD MPM 
-        '''nclass : int
-        Number of categories for the training dataset, which is 30 for Cityscpae Dataset'''
-        print('n_classes',n_classes)
 
-        #self.sphead = SPHead(2048, n_classes, norm_layer,'bilinear') ##default nearest
-        #self.MPM = StripPooling(128,(20, 12), norm_layer=nn.BatchNorm2d)##,**kwargs) # up_kwargs='bilinear') 
-	## 原code feature map 15x15 
-	#(20,12) is the kernel size of two adaptive average pooling resp.
-	#Dont know how 20&12 are inferred? issue:https://bit.ly/3pQoUm1 
-	## TODO: what is the number of mid chan ?
+        ## TODO: what is the number of mid chan ?
         self.head = SegmentHead(128, 1024, n_classes, up_factor=8, aux=False)
         if self.output_aux:
             self.aux2 = SegmentHead(16, 128, n_classes, up_factor=4)
@@ -375,7 +367,7 @@ class BiSeNetV2(nn.Module):
         feat_d = self.detail(x)
         feat2, feat3, feat4, feat5_4, feat_s = self.segment(x)
         feat_head = self.bga(feat_d, feat_s)
-        #feat_head = self.MPM(feat_head) ##test
+
         logits = self.head(feat_head)
         if self.output_aux:
             logits_aux2 = self.aux2(feat2)

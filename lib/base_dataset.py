@@ -30,6 +30,7 @@ class BaseDataset(Dataset):
         with open(annpath, 'r') as fr:
             pairs = fr.read().splitlines()
         self.img_paths, self.lb_paths = [], []
+        print(pairs[0])
         for pair in pairs:
             imgpth, lbpth = pair.split(',')
             self.img_paths.append(osp.join(dataroot, imgpth))
@@ -41,6 +42,9 @@ class BaseDataset(Dataset):
     def __getitem__(self, idx):
         impth, lbpth = self.img_paths[idx], self.lb_paths[idx]
         img, label = cv2.imread(impth)[:, :, ::-1], cv2.imread(lbpth, 0)
+     #   print(np.shape(img))
+     #   img = cv2.resize(img,(1024,2048),interpolation=cv2.INTER_CUBIC)
+     #   label = cv2.resize(label,(1024,2048),interpolation=cv2.INTER_CUBIC)
         if not self.lb_map is None:
             label = self.lb_map[label]
         im_lb = dict(im=img, lb=label)
@@ -82,8 +86,9 @@ class TransformationVal(object):
 if __name__ == "__main__":
     from tqdm import tqdm
     from torch.utils.data import DataLoader
+    #ds = CityScapes(dataroot='',annpath = '../datasets/cityscapes/train.txt', mode='train')
     ds = CityScapes('./data/', mode='val')
-    dl = DataLoader(ds,
+    dl= DataLoader(ds,
                     batch_size = 4,
                     shuffle = True,
                     num_workers = 4,
