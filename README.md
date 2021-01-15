@@ -52,4 +52,4 @@ $ python tools/evaluate.py --model bisenetv1 --weight-path /path/to/your/weight.
 ##Reference
 1. Hou, Q., Zhang, L., Cheng, M.M., Feng, J.: Strip pooling: Rethinking spatial pooling for scene parsing. In: CVPR. (2020)
 2. C. Yu, C. Gao, J. Wang, G. Yu, C. Shen, and N. Sang, “BiSeNet V2: Bilateral network with guided aggregation for real-time semantic segmentation,” 2020, arXiv:2004.02147.
-3. [Github](https://github.com/CoinCheung/BiSeNet)
+3. The Based [Github](https://github.com/CoinCheung/BiSeNet)
