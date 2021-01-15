@@ -1,3 +1,5 @@
+Note: the Cityscapes need to be downdloaded by signing in the website of cityscapes, the distributed of the dataset is prohibited by the author, and link is given below.
+
 ## Pretrained Weights (Tain by Me)
 Pretrained can be downloaded from [here](https://drive.google.com/drive/folders/1Litp2dKYYTB2z9H7yw7fSLP4oqTNLTV0?usp=sharing)
 ## platform
