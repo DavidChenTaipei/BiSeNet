@@ -7,6 +7,7 @@ cfg = dict(
     weight_decay=5e-4,
     warmup_iters = 1000,
     max_iter = 150000,
+    #max_iter = 100000,
     im_root='./datasets/cityscapes',
     train_im_anns='./datasets/cityscapes/train.txt',
     val_im_anns='./datasets/cityscapes/val.txt',
