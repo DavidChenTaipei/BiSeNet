@@ -9,7 +9,7 @@ import logging
 import argparse
 import math
 from tabulate import tabulate
-
+import time
 from tqdm import tqdm
 import numpy as np
 import cv2
@@ -35,6 +35,7 @@ class MscEvalV0(object):
 
     def __call__(self, net, dl, n_classes):
         ## evaluate
+        time_list=[]
         hist = torch.zeros(n_classes, n_classes).cuda().detach()
         if dist.is_initialized() and dist.get_rank() != 0:
             diter = enumerate(dl)
@@ -52,7 +53,11 @@ class MscEvalV0(object):
                         mode='bilinear', align_corners=True)
 
                 im_sc = im_sc.cuda()
+                start = time.time()
                 logits = net(im_sc)[0]
+                end = time.time()
+                time_cost = end-start
+                time_list.append(time_cost)
                 logits = F.interpolate(logits, size=size,
                         mode='bilinear', align_corners=True)
                 probs += torch.softmax(logits, dim=1)
@@ -73,6 +78,10 @@ class MscEvalV0(object):
             dist.all_reduce(hist, dist.ReduceOp.SUM)
         ious = hist.diag() / (hist.sum(dim=0) + hist.sum(dim=1) - hist.diag())
         miou = ious.mean()
+        fps = (len(time_list)/np.sum(time_list))
+        print('fps : ',fps)
+        print('sum',np.sum(time_list))
+        print('len',len(time_list))
         return miou.item()
 
 

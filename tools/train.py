@@ -11,12 +11,12 @@ import time
 import argparse
 import numpy as np
 from tabulate import tabulate
-
+from torch.utils.tensorboard import SummaryWriter
 import torch
 import torch.nn as nn
 import torch.distributed as dist
 from torch.utils.data import DataLoader
-
+from utils import save_checkpoint
 from lib.models import model_factory
 from configs import cfg_factory
 from lib.cityscapes_cv2 import get_data_loader
@@ -25,7 +25,8 @@ from lib.ohem_ce_loss import OhemCELoss
 from lib.lr_scheduler import WarmupPolyLrScheduler
 from lib.meters import TimeMeter, AvgMeter
 from lib.logger import setup_logger, print_log_msg
-
+from lib.models.MPM import StripPooling
+writer = SummaryWriter('./runs/')
 # apex
 has_apex = True
 try:
@@ -129,6 +130,7 @@ def set_meters():
 
 
 def train():
+    best_prec1=(-1)
     logger = logging.getLogger()
     is_dist = dist.is_initialized()
 
@@ -188,23 +190,52 @@ def train():
 
         ## print training log message
         if (it + 1) % 100 == 0:
+            print('1')
             lr = lr_schdr.get_lr()
             lr = sum(lr) / len(lr)
-            print_log_msg(
+            loss_avg = print_log_msg(
                 it, cfg.max_iter, lr, time_meter, loss_meter,
                 loss_pre_meter, loss_aux_meters)
-
+            #loss_avg, _ = loss_meter.get()
+            #print(dist.get_rank())
+            print('avg neter',loss_avg)
+            print('type(loss_meter)',type(loss_avg))
+            #loss_mater = np.array(loss_meter)
+            #print('type(loss_meter) to numpy?',type(loss_meter))
+            writer.add_scalar('loss',loss_avg,(it + 1) //100)
+        if ((it+1)%2 ==0)&(it!=cfg.max_iter) :
+            print('2')
+            torch.cuda.empty_cache()
+            heads, mious,miou = eval_model(net, 2, cfg.im_root, cfg.val_im_anns,it)
+            print('type(miou)',type(miou))
+            is_best = miou> best_prec1
+            is_best = False    
+            print('is best? ',is_best)
+            best_prec1 = max(miou, best_prec1)
+            writer.add_scalar('mIOU',miou,(it+1)//100)
+            filename = osp.join(cfg.respth, 'MPM_at_the_end_{x:.4f}'.format(x=miou))
+            state = net.module.state_dict()
+            logger.info('\nsave models to {}'.format(filename))  
+            if dist.get_rank() == 0: 
+                #torch.save(state, filename)
+                save_checkpoint(state,is_best,filename) 
+        elif((it+1)==cfg.max_iter) :
+            print('3')
+            logger.info('\nevaluating the final model')
+            filename = osp.join(cfg.respth, 'original.pth')
+            state = net.module.state_dict()
+            if dist.get_rank() == 0:
+                torch.save(state, filename)
+            torch.cuda.empty_cache()
+            #heads, mious = eval_model(net, 1, cfg.im_root, cfg.val_im_anns,it)
+            heads, mious = eval_model(net, 1, cfg.im_root, cfg.val_im_anns)#,it)
+            logger.info(tabulate([mious, ], headers=heads, tablefmt='orgtbl'))
+            #save_checkpoint(state,False,filename)
     ## dump the final model and evaluate the result
-    save_pth = osp.join(cfg.respth, 'model_final.pth')
-    logger.info('\nsave models to {}'.format(save_pth))
-    state = net.module.state_dict()
-    if dist.get_rank() == 0: torch.save(state, save_pth)
-
-    logger.info('\nevaluating the final model')
-    torch.cuda.empty_cache()
-    heads, mious = eval_model(net, 2, cfg.im_root, cfg.val_im_anns)
-    logger.info(tabulate([mious, ], headers=heads, tablefmt='orgtbl'))
-
+    
+    #filename = osp.join(cfg.respth, 'MPM_at_the_end_checkpoint')
+    #logger.info('\nsave models to {}'.format(filename))
+    #state = net.module.state_dict()
     return
 
 
